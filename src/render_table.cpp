@@ -459,12 +459,17 @@ void litehtml::render_item_table::draw_children(uint_ptr hdc, pixel_t x, pixel_t
 
     // Honor overflow: hidden on tables: clip to the table border box so
     // containers can handle tables wider than the viewport (e.g. scale
-    // them down to fit a page).
-    document::ptr doc = src_el()->get_document();
-    position border_box = pos;
-    border_box += m_padding;
-    border_box += m_borders;
-    doc->container()->set_clip(border_box, border_radiuses());
+    // them down to fit a page). Tables without overflow keep their
+    // default (unclipped) drawing.
+    document::ptr doc   = src_el()->get_document();
+    bool          clip_it = src_el()->css().get_overflow() > overflow_visible;
+    if(clip_it)
+    {
+        position border_box = pos;
+        border_box += m_padding;
+        border_box += m_borders;
+        doc->container()->set_clip(border_box, border_radiuses());
+    }
 
     for(auto& caption : m_grid->captions())
     {
@@ -499,7 +504,10 @@ void litehtml::render_item_table::draw_children(uint_ptr hdc, pixel_t x, pixel_t
         }
     }
 
-    doc->container()->del_clip();
+    if(clip_it)
+    {
+        doc->container()->del_clip();
+    }
 }
 
 litehtml::pixel_t litehtml::render_item_table::get_draw_vertical_offset()
