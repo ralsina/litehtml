@@ -511,6 +511,26 @@ litehtml::pixel_t litehtml::render_item_table::get_draw_vertical_offset()
     return 0_px;
 }
 
+void litehtml::render_item_table::get_row_boxes(std::vector<position>& boxes)
+{
+    if(!m_grid)
+    {
+        return;
+    }
+    for(int row = 0; row < m_grid->rows_count(); row++)
+    {
+        for(int col = 0; col < m_grid->cols_count(); col++)
+        {
+            table_cell* cell = m_grid->cell(col, row);
+            if(cell && cell->el)
+            {
+                boxes.push_back(cell->el->pos());
+                break;
+            }
+        }
+    }
+}
+
 bool litehtml::render_item_table_row::for_inline_boxes(
     const std::function<bool(const position& box, bool first, bool last)>& process) const
 {

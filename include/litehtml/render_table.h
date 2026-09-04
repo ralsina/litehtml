@@ -25,6 +25,7 @@ namespace litehtml
         }
         void    draw_children(uint_ptr hdc, pixel_t x, pixel_t y, const position* clip, draw_flag flag,
                               int zindex) override;
+        void    get_row_boxes(std::vector<position>& boxes) override;
         pixel_t get_draw_vertical_offset() override;
         std::shared_ptr<render_item> init() override;
     };

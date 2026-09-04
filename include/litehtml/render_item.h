@@ -499,6 +499,10 @@ namespace litehtml
         void draw_stacking_context(uint_ptr hdc, pixel_t x, pixel_t y, const position* clip, bool with_positioned);
         virtual void    draw_children(uint_ptr hdc, pixel_t x, pixel_t y, const position* clip, draw_flag flag,
                                       int zindex);
+        // Paginated containers: tables report one box per row (y and
+        // height relative to the table's border box) so page breaks can
+        // land between rows. Other items report nothing.
+        virtual void get_row_boxes(std::vector<position>& /*boxes*/) {}
         virtual pixel_t get_draw_vertical_offset()
         {
             return 0_px;
