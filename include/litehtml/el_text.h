@@ -14,6 +14,11 @@ namespace litehtml
         size        m_size;
         bool        m_use_transformed;
         bool        m_draw_spaces;
+        // A token ending with U+00AD is the head of a word split at a
+        // soft hyphen: a line may break after it, drawing the hyphen.
+        bool    m_soft_hyphen;
+        bool    m_draw_hyphen;
+        pixel_t m_hyphen_width;
 
       public:
         el_text(const char* text, const document::ptr& doc);
@@ -23,6 +28,19 @@ namespace litehtml
         bool is_text() const override
         {
             return true;
+        }
+
+        bool soft_hyphen() const
+        {
+            return m_soft_hyphen;
+        }
+        pixel_t hyphen_width() const
+        {
+            return m_hyphen_width;
+        }
+        void set_draw_hyphen(bool draw_hyphen)
+        {
+            m_draw_hyphen = draw_hyphen;
         }
 
         void        draw(uint_ptr hdc, pixel_t x, pixel_t y, const position* clip,
