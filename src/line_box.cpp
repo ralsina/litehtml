@@ -1,9 +1,28 @@
 #include "html.h"
 #include "line_box.h"
 #include "element.h"
+#include "el_text.h"
 #include "render_item.h"
 #include "types.h"
 #include <algorithm>
+
+// The element of a line box item that takes part in text flow, when it
+// is a plain text token.
+static litehtml::el_text* text_part_element(const std::unique_ptr<litehtml::line_box_item>& item)
+{
+    if(item && item->get_type() == litehtml::line_box_item::type_text_part)
+    {
+        return dynamic_cast<litehtml::el_text*>(item->get_el()->src_el().get());
+    }
+    return nullptr;
+}
+
+// True when the item is a word part that ends at a soft hyphen.
+static bool is_soft_hyphen_part(const std::unique_ptr<litehtml::line_box_item>& item)
+{
+    litehtml::el_text* text = text_part_element(item);
+    return text && text->soft_hyphen();
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -304,6 +323,27 @@ std::list<std::unique_ptr<litehtml::line_box_item>> litehtml::line_box::finish(
         return ret_items;
     }
 
+    // A line that ends at a soft hyphen shows a hyphen at its end:
+    // account for the glyph before aligning or justifying the line.
+    if(!last_box && !finished_with_break)
+    {
+        for(auto iter = m_items.rbegin(); iter != m_items.rend(); iter++)
+        {
+            if((*iter)->get_type() == line_box_item::type_text_part)
+            {
+                el_text* hyphen_part = text_part_element(*iter);
+                if(hyphen_part && hyphen_part->soft_hyphen())
+                {
+                    pixel_t hyphen_width = hyphen_part->hyphen_width();
+                    hyphen_part->set_draw_hyphen(true);
+                    m_width               += hyphen_width;
+                    (*iter)->pos().width  += hyphen_width;
+                }
+                break;
+            }
+        }
+    }
+
     pixel_t spacing_x = 0_px; // Number of pixels to distribute between elements
     pixel_t shift_x   = 0_px; // Shift elements by X to apply the text-align
 
@@ -332,9 +372,24 @@ std::list<std::unique_ptr<litehtml::line_box_item>> litehtml::line_box::finish(
         shift_x = 0_px;
     }
 
-    int   counter = 0;
-    float offj    = static_cast<float>(spacing_x) / std::max(1.f, static_cast<float>(m_items.size()) - 1.f);
-    float cixx    = 0.0f;
+    int  counter            = 0;
+    int  stretchable_gaps   = 0;
+    bool previous_stretches = false;
+    if(spacing_x != 0_px)
+    {
+        // Space is distributed between items, but not at the split of a
+        // word broken at a soft hyphen: hyphenated parts stay together.
+        for(const auto& lbi : m_items)
+        {
+            if(previous_stretches)
+            {
+                stretchable_gaps++;
+            }
+            previous_stretches = !is_soft_hyphen_part(lbi);
+        }
+    }
+    float offj = stretchable_gaps > 0 ? static_cast<float>(spacing_x) / static_cast<float>(stretchable_gaps) : 0.0f;
+    float cixx = 0.0f;
 
     std::optional<pixel_t> line_height;
 
@@ -352,6 +407,8 @@ std::list<std::unique_ptr<litehtml::line_box_item>> litehtml::line_box::finish(
     current_context.line_height = m_default_line_height.computed_value;
 
     m_rendered_width.reset();
+
+    previous_stretches = false;
 
     struct items_dimensions
     {
@@ -391,13 +448,17 @@ std::list<std::unique_ptr<litehtml::line_box_item>> litehtml::line_box::finish(
         m_rendered_width.min_width      = std::max(m_rendered_width.min_width, lbi->get_rendered_min_width());
         if(spacing_x != 0_px && counter)
         {
-            cixx += offj;
+            if(previous_stretches)
+            {
+                cixx += offj;
+            }
             if((counter + 1) == static_cast<int>(m_items.size()))
             {
                 cixx += 0.99f;
             }
             lbi->pos().x += pixel_t(cixx);
         }
+        previous_stretches = !is_soft_hyphen_part(lbi);
         counter++;
         if((m_text_align == text_align_right || spacing_x != 0_px) && counter == static_cast<int>(m_items.size()))
         {
@@ -784,7 +845,16 @@ bool litehtml::line_box::can_hold(const std::unique_ptr<line_box_item>& item, wh
             return true;
         }
 
-        if(m_left + m_width + item->width() > m_right)
+        // Breaking after a soft hyphen draws the hyphen glyph: it needs
+        // room on the line too.
+        pixel_t    extra       = 0_px;
+        el_text*   hyphen_part = dynamic_cast<el_text*>(last_el->src_el().get());
+        if(hyphen_part && hyphen_part->soft_hyphen())
+        {
+            extra = hyphen_part->hyphen_width();
+        }
+
+        if(m_left + m_width + extra + item->width() > m_right)
         {
             return false;
         }

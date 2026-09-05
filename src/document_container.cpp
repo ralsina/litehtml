@@ -30,6 +30,18 @@ void litehtml::document_container::split_text(const char* text, const std::funct
             str += c;
             on_word(utf32_to_utf8(str));
             str.clear();
+        }
+        // soft hyphen: a break opportunity inside a word; it stays at
+        // the end of the preceding token so the line breaker can split
+        // the word here and draw the hyphen when the break is taken
+        else if(c == 0xAD)
+        {
+            if(!str.empty())
+            {
+                str += c;
+                on_word(utf32_to_utf8(str));
+                str.clear();
+            }
         } else
         {
             str += c;

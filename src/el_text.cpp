@@ -12,6 +12,13 @@ litehtml::el_text::el_text(const char* text, const document::ptr& doc) :
     }
     m_use_transformed = false;
     m_draw_spaces     = true;
+    // U+00AD is 0xC2 0xAD in UTF-8; a token carrying a trailing soft
+    // hyphen is a word split at a break opportunity (see split_text).
+    size_t length = m_text.length();
+    m_soft_hyphen = length >= 2 && (unsigned char) m_text[length - 2] == 0xC2 &&
+                    (unsigned char) m_text[length - 1] == 0xAD;
+    m_draw_hyphen  = false;
+    m_hyphen_width = 0;
     css_w().set_display(display_inline_text);
 }
 
@@ -99,6 +106,13 @@ void litehtml::el_text::compute_styles(bool /*recursive*/)
         m_size.height = fm.height;
         m_size.width  = get_document()->container()->text_width(
             m_use_transformed ? m_transformed_text.c_str() : m_text.c_str(), font);
+        // The container measures the soft hyphen as zero width (it is
+        // dropped when the break is not taken); the drawn hyphen needs
+        // its own advance width.
+        if(m_soft_hyphen)
+        {
+            m_hyphen_width = get_document()->container()->text_width("-", font);
+        }
     }
     m_draw_spaces = fm.draw_spaces;
 }
@@ -127,8 +141,17 @@ void litehtml::el_text::draw(uint_ptr hdc, pixel_t x, pixel_t y, const position*
             if(font)
             {
                 web_color color = el_parent->css().get_color();
-                doc->container()->draw_text(hdc, m_use_transformed ? m_transformed_text.c_str() : m_text.c_str(), font,
-                                            color, pos);
+                // A line that broke at the soft hyphen draws the word
+                // part with a hyphen appended.
+                std::string hyphenated;
+                const char* text = m_use_transformed ? m_transformed_text.c_str() : m_text.c_str();
+                if(m_draw_hyphen)
+                {
+                    hyphenated = m_use_transformed ? m_transformed_text : m_text;
+                    hyphenated += "-";
+                    text = hyphenated.c_str();
+                }
+                doc->container()->draw_text(hdc, text, font, color, pos);
             }
         }
     }
