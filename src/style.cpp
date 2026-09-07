@@ -592,6 +592,17 @@ namespace litehtml
             add_parsed_property(name, property_value(str, important));
             break;
 
+        //  =============================  PAGE BREAKS  =============================
+
+        // Not rendered by litehtml: the PDF backend reads these back
+        // through get_custom_property to place hard page cuts.
+        case _page_break_before_:
+        case _break_before_:
+        case _page_break_after_:
+        case _break_after_:
+            add_parsed_property(name, property_value(value, important));
+            break;
+
         //  =============================  CUSTOM PROPERTY  =============================
 
         // https://drafts.csswg.org/css-variables-2/#defining-variables

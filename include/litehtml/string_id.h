@@ -94,6 +94,10 @@ namespace litehtml
 
         _counter_reset_, _counter_increment_,
 
+        // Manual page breaks: not rendered by litehtml itself, but the
+        // declarations are stored so PDF pagination can read them back.
+        _page_break_before_, _page_break_after_, _break_before_, _break_after_,
+
         // some CSS dimensions
         _deg_, _grad_, _rad_, _turn_,
 
